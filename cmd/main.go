@@ -29,7 +29,7 @@ func main() {
         return
     }
 
-    usecase, err := usecase.New(config, repo, logger)
+    usecase, err := usecase.New(repo, logger)
     
     if err != nil {
         return

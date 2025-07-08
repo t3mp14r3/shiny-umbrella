@@ -2,8 +2,10 @@ package handler
 
 import (
 	"github.com/gofiber/fiber/v2"
+	//    "github.com/gofiber/fiber/v2/middleware/recover"
 	"github.com/t3mp14r3/shiny-umbrella/internal/api/usecase"
 	"github.com/t3mp14r3/shiny-umbrella/internal/config"
+	"github.com/t3mp14r3/shiny-umbrella/internal/errors"
 	"go.uber.org/zap"
 )
 
@@ -18,19 +20,22 @@ func New(cfg *config.Config, usecase *usecase.UseCase, logger *zap.Logger) (*Han
     router := fiber.New(fiber.Config{
         DisableStartupMessage: true,
     })
-    
+
     h := &Handler{
         router: router,
+        usecase: usecase,
         logger: logger,
         addr: cfg.AppAddr,
     }
 
+    usersApi := router.Group("/users")
+    usersApi.Post("", h.CreateUser)
+    usersApi.Put("", h.UpdateUser)
+
     router.Get("/test", h.Test)
 
     router.Use(func(c *fiber.Ctx) error {
-		return c.Status(404).JSON(fiber.Map{
-			"msg": "Route not found!",
-		})
+		return SendError(c, 404, errors.New("Route not found!"))
 	})
 
     return h, nil
