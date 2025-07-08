@@ -27,6 +27,12 @@ func New(cfg *config.Config, usecase *usecase.UseCase, logger *zap.Logger) (*Han
 
     router.Get("/test", h.Test)
 
+    router.Use(func(c *fiber.Ctx) error {
+		return c.Status(404).JSON(fiber.Map{
+			"msg": "Route not found!",
+		})
+	})
+
     return h, nil
 
 }
