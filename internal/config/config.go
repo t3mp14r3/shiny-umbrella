@@ -8,13 +8,14 @@ import (
 )
 
 type Config struct {
-    AppAddr     string  `env:"APP_ADDR"`
+    AppAddr         string  `env:"APP_ADDR"`
 
-    DBUser      string  `env:"DB_USER"`
-    DBHost      string  `env:"DB_HOST"`
-    DBName      string  `env:"DB_NAME"`
-    DBPass      string  `env:"DB_PASS"`
-    DBPort      int     `env:"DB_PORT"`
+    DBUser          string  `env:"DB_USER"`
+    DBHost          string  `env:"DB_HOST"`
+    DBName          string  `env:"DB_NAME"`
+    DBPass          string  `env:"DB_PASS"`
+    DBPort          int     `env:"DB_PORT"`
+    DBMigrations    string  `env:"DB_MIGRATIONS"`
 }
 
 func New() (*Config, error) {
