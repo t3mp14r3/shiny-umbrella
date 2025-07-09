@@ -16,6 +16,8 @@ type Tournament struct {
     StartsAt    time.Time   `db:"starts_at" json:"starts_at"`
     Duration    int64   `db:"duration" json:"duration"`
     Rewards     []uint8 `db:"rewards" json:"-"`
+    Participants    int `db:"participants" json:"participants"`
+    Registered  bool    `db:"registered" json:"registered"`
 }
 
 type Automatic struct {

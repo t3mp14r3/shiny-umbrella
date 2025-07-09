@@ -7,7 +7,6 @@ import (
 
 	"github.com/t3mp14r3/shiny-umbrella/internal/domain"
 	"github.com/t3mp14r3/shiny-umbrella/internal/errors"
-	"go.uber.org/zap"
 )
 
 type TournamentOutput struct {
@@ -20,10 +19,19 @@ type TournamentOutput struct {
     StartsAt    string   `json:"starts_at"`
     EndsAt      string   `json:"ends_at"`
     Rewards     []domain.Reward `json:"rewards"`
+    Participants    int `json:"participants"`
+    Registered  bool    `json:"registered"`
 }
 
-func (u *UseCase) GetTournaments(ctx context.Context) ([]TournamentOutput, error) {
-    list, err := u.repo.GetTournaments(ctx)
+func (u *UseCase) GetTournaments(ctx context.Context, username ...string) ([]TournamentOutput, error) {
+    var list []domain.Tournament
+    var err error
+
+    if len(username) > 0 {
+        list, err = u.repo.GetTournaments(ctx, username[0])
+    } else {
+        list, err = u.repo.GetTournaments(ctx)
+    }
 
     if err != nil {
         return nil, errors.ErrorSomethingWentWrong
@@ -46,11 +54,7 @@ func (u *UseCase) GetTournaments(ctx context.Context) ([]TournamentOutput, error
             status = "Active"
         }
 
-        err := json.Unmarshal([]byte(t.Rewards), &rewards)
-
-        if err != nil {
-            u.logger.Error("Failed to unmarshal rewards JSON", zap.Error(err))
-        }
+        json.Unmarshal([]byte(t.Rewards), &rewards)
 
         out = append(out, TournamentOutput{
             ID: t.ID,
@@ -62,6 +66,8 @@ func (u *UseCase) GetTournaments(ctx context.Context) ([]TournamentOutput, error
             StartsAt: t.StartsAt.Format("02.01.2006 15:04:05"),
             EndsAt: endsAt.Format("02.01.2006 15:04:05"),
             Rewards: rewards,
+            Participants: t.Participants,
+            Registered: t.Registered,
         })
     }
 
