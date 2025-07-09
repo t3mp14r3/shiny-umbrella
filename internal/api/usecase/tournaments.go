@@ -147,3 +147,49 @@ func (u *UseCase) Register(ctx context.Context, input RegisterInput) error {
 
     return nil
 }
+
+type ScoreInput struct {
+    Username        string  `json:"username"`
+    TournamentID    int64   `json:"tournament_id"`
+    Score           int     `json:"score"`
+}
+
+func (u *UseCase) Score(ctx context.Context, input ScoreInput) error {
+    r, err := u.repo.GetRegistration(ctx, input.TournamentID, input.Username)
+   
+    if err != nil {
+        return errors.ErrorSomethingWentWrong
+    } else if err == nil && r == nil {
+        return errors.ErrorNotRegistered
+    }
+    
+    t, err := u.repo.GetTournament(ctx, input.TournamentID)
+   
+    if err != nil {
+        return errors.ErrorSomethingWentWrong
+    } else if err == nil && r == nil {
+        return errors.ErrorTournamentNotFound
+    }
+
+    count, err := u.repo.CountScores(ctx, input.TournamentID, input.Username)
+    
+    if err != nil {
+        return errors.ErrorSomethingWentWrong
+    }
+
+    if count >= t.Bets {
+        return errors.ErrorMaximumBets
+    }
+
+    err = u.repo.CreateScore(ctx, domain.Score{
+        TournamentID: input.TournamentID,
+        Username: input.Username,
+        Score: input.Score,
+    })
+    
+    if err != nil {
+        return errors.ErrorSomethingWentWrong
+    }
+
+    return nil
+}

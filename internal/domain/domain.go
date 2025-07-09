@@ -44,3 +44,11 @@ type Registration struct {
     Username        string  `db:"username" json:"username"`
     RegisteredAt    time.Time   `db:"registered_at" json:"registered_at"`
 }
+
+type Score struct {
+    ID              int64 `db:"id" json:"id,omitempty"`
+    TournamentID    int64 `db:"tournament_id" json:"tournament_id,omitempty"`
+    Username        string  `db:"username" json:"username"`
+    Score           int     `db:"score" json:"score"`
+    PlacedAt        time.Time   `db:"placed_at" json:"placed_at"`
+}

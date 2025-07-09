@@ -36,6 +36,7 @@ func New(cfg *config.Config, usecase *usecase.UseCase, logger *zap.Logger) (*Han
     tournamentsApi := router.Group("/tournaments")
     tournamentsApi.Get("", h.GetTournaments)
     tournamentsApi.Post("/register", h.Register)
+    tournamentsApi.Post("/score", h.Score)
 
     router.Get("/test", h.Test)
 

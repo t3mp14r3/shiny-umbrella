@@ -15,9 +15,9 @@ func (r *Repository) GetTournaments(ctx context.Context, username ...string) ([]
     var err error
 
     if len(username) > 0 {
-        err = r.db.SelectContext(ctx, &out, "SELECT t.id, t.price, t.min_users, t.max_users, t.bets, t.starts_at, EXTRACT(EPOCH FROM t.duration)::BIGINT AS duration, (SELECT json_agg(json_build_object('place', r.place, 'prize', r.prize)) FROM rewards r WHERE r.tournament_id = t.id) AS rewards, COUNT(DISTINCT r.username) AS participants, (SELECT COUNT(r.id) > 0 FROM registrations r WHERE r.tournament_id = t.id AND r.username = $1) AS registered FROM tournaments t LEFT JOIN registrations r ON t.id = r.tournament_id GROUP BY t.id ORDER BY t.starts_at;", username[0])
+        err = r.db.SelectContext(ctx, &out, "SELECT t.id, t.price, t.min_users, t.max_users, t.bets, t.starts_at, EXTRACT(EPOCH FROM t.duration)::BIGINT AS duration, (SELECT json_agg(json_build_object('place', r.place, 'prize', r.prize)) FROM rewards r WHERE r.tournament_id = t.id) AS rewards, COUNT(DISTINCT r.username) AS participants, (SELECT COUNT(r.id) > 0 FROM registrations r WHERE r.tournament_id = t.id AND r.username = $1) AS registered FROM tournaments t LEFT JOIN registrations r ON t.id = r.tournament_id GROUP BY t.id;", username[0])
     } else {
-        err = r.db.SelectContext(ctx, &out, "SELECT t.id, t.price, t.min_users, t.max_users, t.bets, t.starts_at, EXTRACT(EPOCH FROM t.duration)::BIGINT AS duration, (SELECT json_agg(json_build_object('place', r.place, 'prize', r.prize)) FROM rewards r WHERE r.tournament_id = t.id) AS rewards, COUNT(DISTINCT r.username) AS participants FROM tournaments t LEFT JOIN registrations r ON t.id = r.tournament_id GROUP BY t.id ORDER BY t.starts_at;")
+        err = r.db.SelectContext(ctx, &out, "SELECT t.id, t.price, t.min_users, t.max_users, t.bets, t.starts_at, EXTRACT(EPOCH FROM t.duration)::BIGINT AS duration, (SELECT json_agg(json_build_object('place', r.place, 'prize', r.prize)) FROM rewards r WHERE r.tournament_id = t.id) AS rewards, COUNT(DISTINCT r.username) AS participants FROM tournaments t LEFT JOIN registrations r ON t.id = r.tournament_id GROUP BY t.id;")
     }
    
     if errors.Is(err, sql.ErrNoRows) {
@@ -89,6 +89,21 @@ func (r *Repository) CreateRegistrationTx(ctx context.Context, tx *sqlx.Tx, inpu
 
     if err != nil {
         r.logger.Error("Failed to create a registration record!", zap.Error(err))
+        return nil, err
+    }
+
+    return &out, nil
+}
+
+func (r *Repository) GetRegistration(ctx context.Context, tournament_id int64, username string) (*domain.Registration, error) {
+    var out domain.Registration
+
+    err := r.db.GetContext(ctx, &out, "SELECT * FROM registrations WHERE tournament_id = $1 AND username = $2;", tournament_id, username)
+   
+    if errors.Is(err, sql.ErrNoRows) {
+        return nil, nil
+    } else if err != nil {
+        r.logger.Error("Failed to get registration record!", zap.Error(err))
         return nil, err
     }
 
