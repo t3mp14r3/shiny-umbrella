@@ -37,3 +37,10 @@ type Reward struct {
     Place           int   `db:"place" json:"place"`
     Prize           int   `db:"prize" json:"prize"`
 }
+
+type Registration struct {
+    ID              int64 `db:"id" json:"id,omitempty"`
+    TournamentID    int64 `db:"tournament_id" json:"tournament_id,omitempty"`
+    Username        string  `db:"username" json:"username"`
+    RegisteredAt    time.Time   `db:"registered_at" json:"registered_at"`
+}

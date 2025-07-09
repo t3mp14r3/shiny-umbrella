@@ -29,3 +29,37 @@ func (h *Handler) GetTournaments(c *fiber.Ctx) error {
 
     return c.Status(http.StatusOK).JSON(out)
 }
+
+type registerInput struct {
+    Username        string  `json:"username"`
+    TournamentID    int64   `json:"tournament_id"`
+}
+
+func (i registerInput) Valid() bool {
+    if len(i.Username) > 0 && i.TournamentID >= 0 {
+        return true
+    }
+    return false
+}
+
+func (h *Handler) Register(c *fiber.Ctx) error {
+    ctx, _ := context.WithCancel(c.Context())
+    var input registerInput
+    
+    err := c.BodyParser(&input)
+
+    if err != nil || !input.Valid() {
+        return SendError(c, http.StatusBadRequest, errors.New("Incorrect request data!"))
+    }
+
+    err = h.usecase.Register(ctx, usecase.RegisterInput{
+        TournamentID: input.TournamentID,
+        Username: input.Username,
+    })
+
+    if err != nil {
+        return SendError(c, errors.Codes[err], err)
+    }
+
+    return c.Status(http.StatusOK).JSON(map[string]string{})
+}

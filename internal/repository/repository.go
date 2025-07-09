@@ -48,3 +48,36 @@ func migrate(db *sql.DB, path string) error {
 
     return nil
 }
+
+func (r *Repository) Begin() (*sqlx.Tx, error) {
+    tx, err := r.db.Beginx()
+
+    if err != nil {
+        r.logger.Error("Failed to begin new transaction!", zap.Error(err))
+        return nil, err
+    }
+    
+    return tx, nil
+}
+
+func (r *Repository) Commit(tx *sqlx.Tx) error {
+    err := tx.Commit()
+
+    if err != nil {
+        r.logger.Error("Failed to commit transaction!", zap.Error(err))
+        return err
+    }
+    
+    return nil
+}
+
+func (r *Repository) Rollback(tx *sqlx.Tx) error {
+    err := tx.Rollback()
+
+    if err != nil {
+        r.logger.Error("Failed to rollback transaction!", zap.Error(err))
+        return err
+    }
+    
+    return nil
+}

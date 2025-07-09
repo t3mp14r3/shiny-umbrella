@@ -10,7 +10,7 @@ import (
 func (u *UseCase) CreateUser(ctx context.Context, user domain.User) (*domain.User, error) {
     check, err := u.repo.GetUser(ctx, user.Username)
 
-    if err == nil && check != nil {
+    if check != nil {
         return nil, errors.ErrorUsernameInUse
     } else if err != nil {
         return nil, errors.ErrorSomethingWentWrong

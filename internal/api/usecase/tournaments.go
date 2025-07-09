@@ -48,6 +48,8 @@ func (u *UseCase) GetTournaments(ctx context.Context, username ...string) ([]Tou
 
         if t.StartsAt.After(now) {
             status = "Upcoming"
+        } else if endsAt.Before(now) && t.Participants < t.MinUsers {
+            status = "Canceled"
         } else if endsAt.Before(now) {
             status = "Ended"
         } else {
@@ -72,4 +74,76 @@ func (u *UseCase) GetTournaments(ctx context.Context, username ...string) ([]Tou
     }
 
     return out, nil
+}
+
+type RegisterInput struct {
+    Username        string  `json:"username"`
+    TournamentID    int64   `json:"tournament_id"`
+}
+
+func (u *UseCase) Register(ctx context.Context, input RegisterInput) error {
+    t, err := u.repo.GetTournament(ctx, input.TournamentID)
+   
+    if err != nil {
+        return errors.ErrorSomethingWentWrong
+    } else if err == nil && t == nil {
+        return errors.ErrorTournamentNotFound
+    }
+
+    count, err := u.repo.CountRegistrations(ctx, input.TournamentID)
+    
+    if err != nil {
+        return errors.ErrorSomethingWentWrong
+    }
+
+    user, err := u.repo.GetUser(ctx, input.Username)
+    
+    if err != nil {
+        return errors.ErrorSomethingWentWrong
+    }
+
+    now := time.Now()
+    endsAt := t.StartsAt.Add(time.Duration(t.Duration * int64(time.Second)))
+
+    if endsAt.Before(now) {
+        return errors.ErrorTournamentEnded
+    } else if t.MaxUsers == count {
+        return errors.ErrorTournamentMaxed
+    } else if t.Price > user.Balance {
+        return errors.ErrorNotEnoughFunds
+    }
+
+    tx, err := u.repo.Begin()
+
+    if err != nil {
+        return errors.ErrorSomethingWentWrong
+    }
+
+    _, err = u.repo.UpdateUserTx(ctx, tx, domain.User{
+        Username: input.Username,
+        Balance: user.Balance - t.Price,
+    })
+    
+    if err != nil {
+        u.repo.Rollback(tx)
+        return errors.ErrorSomethingWentWrong
+    }
+
+    _, err = u.repo.CreateRegistrationTx(ctx, tx, domain.Registration{
+        TournamentID: input.TournamentID,
+        Username: input.Username,
+    })
+    
+    if err != nil {
+        u.repo.Rollback(tx)
+        return errors.ErrorSomethingWentWrong
+    }
+
+    err = u.repo.Commit(tx)
+    
+    if err != nil {
+        return errors.ErrorSomethingWentWrong
+    }
+
+    return nil
 }
