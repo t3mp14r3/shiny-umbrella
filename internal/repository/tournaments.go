@@ -12,7 +12,7 @@ import (
 func (r *Repository) GetTournaments(ctx context.Context) ([]domain.Tournament, error) {
     var out []domain.Tournament
 
-    err := r.db.SelectContext(ctx, &out, "SELECT id, price, min_users, max_users, bets, starts_at, EXTRACT(EPOCH FROM duration)::BIGINT AS duration FROM tournaments;")
+    err := r.db.SelectContext(ctx, &out, "SELECT t.id, t.price, t.min_users, t.max_users, t.bets, t.starts_at, EXTRACT(EPOCH FROM t.duration)::BIGINT AS duration, json_agg(json_build_object('place', r.place, 'prize', r.prize)) AS rewards FROM tournaments t INNER JOIN rewards r ON t.id = r.tournament_id GROUP BY t.id;")
    
     if errors.Is(err, sql.ErrNoRows) {
         return []domain.Tournament{}, nil
