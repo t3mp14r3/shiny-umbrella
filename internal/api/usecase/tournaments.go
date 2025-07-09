@@ -32,9 +32,7 @@ func (u *UseCase) GetTournaments(ctx context.Context) ([]TournamentOutput, error
         var status string
         endsAt := t.StartsAt.Add(time.Duration(t.Duration * int64(time.Second)))
 
-        if t.Canceled {
-            status = "Canceled"
-        } else if t.StartsAt.After(now) {
+        if t.StartsAt.After(now) {
             status = "Upcoming"
         } else if endsAt.Before(now) {
             status = "Ended"

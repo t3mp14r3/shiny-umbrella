@@ -7,8 +7,7 @@ CREATE TABLE IF NOT EXISTS tournaments(
     max_users   INT         NOT NULL,
     bets        INT         NOT NULL,
     starts_at   TIMESTAMP   NOT NULL,
-    duration    INTERVAL    NOT NULL,
-    canceled    BOOL        NOT NULL DEFAULT false
+    duration    INTERVAL    NOT NULL
 );
 -- +goose StatementEnd
 
