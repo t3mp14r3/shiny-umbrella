@@ -37,6 +37,21 @@ func (r *Repository) GetUser(ctx context.Context, username string) (*domain.User
     return &out, nil
 }
 
+func (r *Repository) GetUsers(ctx context.Context) ([]domain.User, error) {
+    var out []domain.User
+
+    err := r.db.SelectContext(ctx, &out, "SELECT * FROM users;")
+
+    if errors.Is(err, sql.ErrNoRows) {
+        return []domain.User{}, nil
+    } else if err != nil {
+        r.logger.Error("Failed to select user records!", zap.Error(err))
+        return nil, err
+    }
+
+    return out, nil
+}
+
 func (r *Repository) UpdateUser(ctx context.Context, user domain.User) (*domain.User, error) {
     var out domain.User
 

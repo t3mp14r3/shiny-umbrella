@@ -30,3 +30,13 @@ func (u *UseCase) UpdateUser(ctx context.Context, user domain.User) (*domain.Use
 
     return out, nil
 }
+
+func (u *UseCase) GetUsers(ctx context.Context) ([]domain.User, error) {
+    out, err := u.repo.GetUsers(ctx)
+
+    if err != nil {
+        return nil, errors.ErrorSomethingWentWrong
+    }
+
+    return out, nil
+}

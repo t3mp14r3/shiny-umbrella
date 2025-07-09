@@ -76,3 +76,15 @@ func (h *Handler) UpdateUser(c *fiber.Ctx) error {
 
     return c.Status(http.StatusOK).JSON(out)
 }
+
+func (h *Handler) GetUsers(c *fiber.Ctx) error {
+    ctx, _ := context.WithCancel(c.Context())
+
+    out, err := h.usecase.GetUsers(ctx)
+
+    if err != nil {
+        return SendError(c, errors.Codes[err], err)
+    }
+
+    return c.Status(http.StatusOK).JSON(out)
+}
