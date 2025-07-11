@@ -22,7 +22,7 @@ docker-compose up --build
 BEGIN;
 INSERT INTO tournaments(price, min_users, max_users, bets, starts_at, duration) VALUES(99, 2, 10, 5, NOW() + INTERVAL '30 minutes', INTERVAL '10 minutes');
 INSERT INTO rewards(tournament_id, place, prize) VALUES(1, 1, 300),(1, 2, 200),(1, 3, 100);
-COMMIT();
+COMMIT;
 ```
 
 **Автоматические турниры**<br>
@@ -30,7 +30,7 @@ COMMIT();
 BEGIN;
 INSERT INTO automatic(price, min_users, max_users, bets, duration, repeat) VALUES(99, 2, 10, 5, INTERVAL '30 minutes', INTERVAL '5 hours');
 INSERT INTO automatic_rewards(automatic_id, place, prize) VALUES(1, 1, 300),(1, 2, 200),(1, 3, 100);
-COMMIT();
+COMMIT;
 ```
 
 ## API
