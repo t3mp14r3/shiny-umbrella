@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
+    "log"
 	"time"
 
 	"github.com/go-co-op/gocron/v2"
@@ -63,15 +63,12 @@ func (c *Cron) Load() error {
             }
         }
     }
-    log.Println("Loaded regular")
 
     records, err := c.repo.GetAutomatics(context.Background())
 
     if err != nil {
         return err
     }
-
-    log.Println(records)
 
     for _, record := range records {
         j, err := (*c.scheduler).NewJob(
@@ -80,7 +77,6 @@ func (c *Cron) Load() error {
             ),
             gocron.NewTask(
                 func(input domain.Tournament, rewards []uint8, logger *zap.Logger) {
-                    log.Println("lets goooo")
                     input.StartsAt = time.Now()
                     result, err := c.repo.CreateTournament(context.Background(), input)
         
@@ -123,19 +119,12 @@ func (c *Cron) Load() error {
 
         c.jobs = append(c.jobs, &j)
     }
-    log.Println("Loaded automatics")
-
-
-
-    log.Println(c.jobs)
 
     return nil
 }
 
 func (c *Cron) Score(input *domain.Tournament) error {
     endsAt := input.StartsAt.Add(time.Duration(input.Duration * int64(time.Second)))
-
-    log.Println("scheduling new score!")
 
     go func(id int64) {
         time.Sleep(time.Until(endsAt))
@@ -154,9 +143,6 @@ func (c *Cron) Update(id int64, channel string) error {
     }
 
     if channel == "inserts" {
-        log.Println("new insert!")
-        log.Println(fmt.Sprintf("%d", record.ID))
-
         j, err := (*c.scheduler).NewJob(
             gocron.DurationJob(
                 time.Duration(record.Repeat*int64(time.Second)),

@@ -48,7 +48,8 @@ func New(logger *zap.Logger, cron *cron.Cron, connString string) *Notifier {
 	}
 
 	n.listener = listener
-	return nil
+
+	return n
 }
 
 func (n *Notifier) logListener(event pq.ListenerEventType, err error) {

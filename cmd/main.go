@@ -19,7 +19,6 @@ import (
 
 func main() {
     config := config.New()
-
     logger := logger.New()
 
     repo := repository.New(config, logger)
@@ -65,7 +64,7 @@ func main() {
         }
     }(ctx)
 
-    logger.Info("Application started", zap.String("addr", config.AppAddr))
+    logger.Info("Application started")
 
     exit := make(chan os.Signal, 1)
 	signal.Notify(exit, syscall.SIGINT, syscall.SIGTERM)
