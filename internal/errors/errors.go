@@ -16,6 +16,7 @@ var ErrorTournamentMaxed = errors.New("Tournament already has maximum registrati
 var ErrorNotEnoughFunds = errors.New("Not enough funds!")
 var ErrorNotRegistered = errors.New("You are not registered!")
 var ErrorMaximumBets = errors.New("You have placed maximum amount of bets!")
+var ErrorTournamentNotStarted = errors.New("Tournament hasn't started yet!")
 
 var Codes = map[error]int{
     ErrorUsernameInUse: http.StatusBadRequest,
@@ -26,4 +27,5 @@ var Codes = map[error]int{
     ErrorTournamentMaxed: http.StatusBadRequest,
     ErrorNotEnoughFunds: http.StatusBadRequest,
     ErrorNotRegistered: http.StatusUnauthorized,
+    ErrorTournamentNotStarted: http.StatusUnauthorized,
 }

@@ -6,7 +6,6 @@ CREATE TABLE IF NOT EXISTS automatic(
     min_users   INT         NOT NULL,
     max_users   INT         NOT NULL,
     bets        INT         NOT NULL,
-    starts_at   TIMESTAMP   NOT NULL,
     duration    INTERVAL    NOT NULL,
     repeat      INTERVAL    NOT NULL
 );

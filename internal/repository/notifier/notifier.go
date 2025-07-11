@@ -1,6 +1,7 @@
 package notifier
 
 import (
+	"context"
 	"log"
 	"strconv"
 	"time"
@@ -10,7 +11,6 @@ import (
 	"go.uber.org/zap"
 )
 
-// notifier encapsulates the state of the listener connection.
 type Notifier struct {
 	listener *pq.Listener
 	failed   chan error
@@ -18,8 +18,7 @@ type Notifier struct {
     cron     *cron.Cron
 }
 
-// newNotifier creates a new notifier for given PostgreSQL credentials.
-func New(logger *zap.Logger, cron *cron.Cron, connString string) (*Notifier, error) {
+func New(logger *zap.Logger, cron *cron.Cron, connString string) *Notifier {
     n := &Notifier{failed: make(chan error, 2), logger: logger, cron: cron}
 
 	listener := pq.NewListener(
@@ -29,25 +28,29 @@ func New(logger *zap.Logger, cron *cron.Cron, connString string) (*Notifier, err
 
 	if err := listener.Listen("inserts"); err != nil {
 		listener.Close()
-        log.Printf("Failed to start a notifier inserts listener: %v\n", err)
-		return nil, err
+        log.Fatalf("Failed to start a notifier inserts listener: %v\n", err)
+		return nil
 	}
 	if err := listener.Listen("updates"); err != nil {
 		listener.Close()
-        log.Printf("Failed to start a notifier inserts listener: %v\n", err)
-		return nil, err
+        log.Fatalf("Failed to start a notifier updates listener: %v\n", err)
+		return nil
 	}
 	if err := listener.Listen("deletes"); err != nil {
 		listener.Close()
-        log.Printf("Failed to start a notifier inserts listener: %v\n", err)
-		return nil, err
+        log.Fatalf("Failed to start a notifier deletes listener: %v\n", err)
+		return nil
+	}
+	if err := listener.Listen("new"); err != nil {
+		listener.Close()
+        log.Fatalf("Failed to start a notifier new listener: %v\n", err)
+		return nil
 	}
 
 	n.listener = listener
-	return n, nil
+	return nil
 }
 
-// logListener is the state change callback for the listener.
 func (n *Notifier) logListener(event pq.ListenerEventType, err error) {
 	if err != nil {
 		n.logger.Error("Notifier listening failure", zap.Error(err))
@@ -57,9 +60,7 @@ func (n *Notifier) logListener(event pq.ListenerEventType, err error) {
 	}
 }
 
-// fetch is the main loop of the notifier to receive data from
-// the database in JSON-FORMAT and send it down the send channel.
-func (n *Notifier) Listen() error {
+func (n *Notifier) Listen(ctx context.Context) error {
 	for {
 		select {
 		case e := <-n.listener.Notify:
@@ -70,20 +71,26 @@ func (n *Notifier) Listen() error {
             id, err := strconv.ParseInt(e.Extra, 10, 64)
 
             if err != nil {
-                n.logger.Error("Failed to parse automatic record ID", zap.Error(err))
+                n.logger.Error("Failed to parse record ID", zap.Error(err))
                 continue
             }
 
-            n.cron.Update(id, e.Channel)
+            if e.Channel == "new" {
+                n.cron.Regular(id)
+            } else {
+                n.cron.Update(id, e.Channel)
+            }
 		case err := <-n.failed:
 			return err
 		case <-time.After(time.Minute):
 			go n.listener.Ping()
+        case <-ctx.Done():
+            return nil
 		}
 	}
 }
 
-func (n *Notifier) Shutdown() error {
+func (n *Notifier) Close() error {
 	close(n.failed)
 	return n.listener.Close()
 }

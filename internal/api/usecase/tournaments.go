@@ -10,17 +10,17 @@ import (
 )
 
 type TournamentOutput struct {
-    ID          int64 `json:"id"`
-    Price       int `json:"price"`
-    MinUsers    int `json:"min_users"`
-    MaxUsers    int `json:"max_users"`
-    Bets        int `json:"bets"`
-    Status      string   `json:"status"`
-    StartsAt    string   `json:"starts_at"`
-    EndsAt      string   `json:"ends_at"`
-    Rewards     []domain.Reward `json:"rewards"`
-    Participants    int `json:"participants"`
-    Registered  bool    `json:"registered"`
+    ID              int64           `json:"id"`
+    Price           int             `json:"price"`
+    MinUsers        int             `json:"min_users"`
+    MaxUsers        int             `json:"max_users"`
+    Bets            int             `json:"bets"`
+    Status          string          `json:"status"`
+    StartsAt        string          `json:"starts_at"`
+    EndsAt          string          `json:"ends_at"`
+    Rewards         []domain.Reward `json:"rewards"`
+    Participants    int             `json:"participants"`
+    Registered      bool            `json:"registered"`
 }
 
 func (u *UseCase) GetTournaments(ctx context.Context, username ...string) ([]TournamentOutput, error) {
@@ -176,9 +176,15 @@ func (u *UseCase) Score(ctx context.Context, input ScoreInput) error {
     if err != nil {
         return errors.ErrorSomethingWentWrong
     }
+    
+    endsAt := t.StartsAt.Add(time.Duration(t.Duration * int64(time.Second)))
 
     if count >= t.Bets {
         return errors.ErrorMaximumBets
+    } else if time.Now().Before(t.StartsAt) {
+        return errors.ErrorTournamentNotStarted
+    } else if time.Now().After(endsAt) {
+        return errors.ErrorTournamentEnded
     }
 
     err = u.repo.CreateScore(ctx, domain.Score{

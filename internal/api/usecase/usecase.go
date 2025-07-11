@@ -10,9 +10,9 @@ type UseCase struct {
     logger  *zap.Logger
 }
 
-func New(repo *repository.Repository, logger *zap.Logger) (*UseCase, error) {
+func New(repo *repository.Repository, logger *zap.Logger) *UseCase {
     return &UseCase{
         repo: repo,
         logger: logger,
-    }, nil
+    }
 }

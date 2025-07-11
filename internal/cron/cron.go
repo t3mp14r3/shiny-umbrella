@@ -2,6 +2,7 @@ package cron
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"time"
@@ -18,38 +19,59 @@ type Cron struct {
     repo        *repository.Repository
     logger      *zap.Logger
     jobs        []*gocron.Job
+    scores      []*gocron.Job
 }
 
-func New(repo *repository.Repository, logger *zap.Logger) (*Cron, error) {
+func New(repo *repository.Repository, logger *zap.Logger) *Cron {
     s, err := gocron.NewScheduler()
 	
     if err != nil {
-        log.Printf("Failed to initialize new cron scheduler: %v\n", err)
-        return nil, err
+        log.Fatalf("Failed to initialize new cron scheduler: %v\n", err)
+        return nil
 	}
 
     return &Cron{
         scheduler: &s,
         repo: repo,
         logger: logger,
-    }, nil
+    }
 }
 
 func (c *Cron) Start() {
     (*c.scheduler).Start()
 }
 
-func (c *Cron) Shutdown() error {
+func (c *Cron) Close() error {
     return (*c.scheduler).Shutdown()
 }
 
 func (c *Cron) Load() error {
+    tournaments, err := c.repo.GetTournaments(context.Background())
+
+    if err != nil {
+        return err
+    }
+
+    for i, t := range tournaments {
+        endsAt := t.StartsAt.Add(time.Duration(t.Duration * int64(time.Second)))
+        
+        if time.Now().Before(endsAt) {
+            err = c.Score(&tournaments[i])
+        
+            if err != nil {
+                return err
+            }
+        }
+    }
+    log.Println("Loaded regular")
+
     records, err := c.repo.GetAutomatics(context.Background())
 
     if err != nil {
-        log.Printf("Failed to load automatic records: %v\n", err)
         return err
     }
+
+    log.Println(records)
 
     for _, record := range records {
         j, err := (*c.scheduler).NewJob(
@@ -57,20 +79,41 @@ func (c *Cron) Load() error {
                 time.Duration(record.Repeat*int64(time.Second)),
             ),
             gocron.NewTask(
-                func(input domain.Tournament, logger *zap.Logger) {
-                    c.repo.CreateTournament(context.Background(), input)
+                func(input domain.Tournament, rewards []uint8, logger *zap.Logger) {
+                    log.Println("lets goooo")
+                    input.StartsAt = time.Now()
+                    result, err := c.repo.CreateTournament(context.Background(), input)
+        
+                    if err != nil {
+                        return
+                    }
+
+                    var rew []domain.Reward
+                    err = json.Unmarshal([]byte(rewards), &rew)
+                    
+                    if err != nil {
+                        c.logger.Error("Failed to unmarshal rewards data", zap.Error(err))
+                        return
+                    }
+
+                    err = c.repo.CreateRewards(context.Background(), result.ID, rew)
+                    
+                    if err != nil {
+                        return
+                    }
                 },
                 domain.Tournament{
                     Price: record.Price,
                     MinUsers: record.MinUsers,
                     MaxUsers: record.MaxUsers,
                     Bets: record.Bets,
-                    StartsAt: record.StartsAt,
                     Duration: record.Duration,
                 },
+                record.Rewards,
                 c.logger,
             ),
             gocron.WithName(fmt.Sprintf("%d", record.ID)),
+            gocron.WithStartAt(gocron.WithStartImmediately()),
         )
 
         if err != nil {
@@ -80,9 +123,24 @@ func (c *Cron) Load() error {
 
         c.jobs = append(c.jobs, &j)
     }
-
     log.Println("Loaded automatics")
+
+
+
     log.Println(c.jobs)
+
+    return nil
+}
+
+func (c *Cron) Score(input *domain.Tournament) error {
+    endsAt := input.StartsAt.Add(time.Duration(input.Duration * int64(time.Second)))
+
+    log.Println("scheduling new score!")
+
+    go func(id int64) {
+        time.Sleep(time.Until(endsAt))
+        c.repo.Calculate(context.Background(), id)
+    }(input.ID)
 
     return nil
 }
@@ -96,38 +154,48 @@ func (c *Cron) Update(id int64, channel string) error {
     }
 
     if channel == "inserts" {
-        _, err := c.repo.CreateTournament(context.Background(), domain.Tournament{
-            Price: record.Price,
-            MinUsers: record.MinUsers,
-            MaxUsers: record.MaxUsers,
-            Bets: record.Bets,
-            StartsAt: record.StartsAt,
-            Duration: record.Duration,
-        })
+        log.Println("new insert!")
+        log.Println(fmt.Sprintf("%d", record.ID))
 
-        if err != nil {
-            return err
-        }
-        
         j, err := (*c.scheduler).NewJob(
             gocron.DurationJob(
                 time.Duration(record.Repeat*int64(time.Second)),
             ),
             gocron.NewTask(
-                func(input domain.Tournament, logger *zap.Logger) {
-                    c.repo.CreateTournament(context.Background(), input)
+                func(input domain.Tournament, rewards []uint8, logger *zap.Logger) {
+                    input.StartsAt = time.Now()
+                    result, err := c.repo.CreateTournament(context.Background(), input)
+        
+                    if err != nil {
+                        return
+                    }
+
+                    var rew []domain.Reward
+                    err = json.Unmarshal([]byte(rewards), &rew)
+                    
+                    if err != nil {
+                        c.logger.Error("Failed to unmarshal rewards data", zap.Error(err))
+                        return
+                    }
+
+                    err = c.repo.CreateRewards(context.Background(), result.ID, rew)
+                    
+                    if err != nil {
+                        return
+                    }
                 },
                 domain.Tournament{
                     Price: record.Price,
                     MinUsers: record.MinUsers,
                     MaxUsers: record.MaxUsers,
                     Bets: record.Bets,
-                    StartsAt: record.StartsAt,
                     Duration: record.Duration,
                 },
+                record.Rewards,
                 c.logger,
             ),
             gocron.WithName(fmt.Sprintf("%d", record.ID)),
+            gocron.WithStartAt(gocron.WithStartImmediately()),
         )
         
         if err != nil {
@@ -152,20 +220,40 @@ func (c *Cron) Update(id int64, channel string) error {
                 time.Duration(record.Repeat*int64(time.Second)),
             ),
             gocron.NewTask(
-                func(input domain.Tournament, logger *zap.Logger) {
-                    c.repo.CreateTournament(context.Background(), input)
+                func(input domain.Tournament, rewards []uint8, logger *zap.Logger) {
+                    input.StartsAt = time.Now()
+                    result, err := c.repo.CreateTournament(context.Background(), input)
+        
+                    if err != nil {
+                        return
+                    }
+
+                    var rew []domain.Reward
+                    err = json.Unmarshal([]byte(rewards), &rew)
+                    
+                    if err != nil {
+                        c.logger.Error("Failed to unmarshal rewards data", zap.Error(err))
+                        return
+                    }
+
+                    err = c.repo.CreateRewards(context.Background(), result.ID, rew)
+                    
+                    if err != nil {
+                        return
+                    }
                 },
                 domain.Tournament{
                     Price: record.Price,
                     MinUsers: record.MinUsers,
                     MaxUsers: record.MaxUsers,
                     Bets: record.Bets,
-                    StartsAt: record.StartsAt,
                     Duration: record.Duration,
                 },
+                record.Rewards,
                 c.logger,
             ),
             gocron.WithName(fmt.Sprintf("%d", record.ID)),
+            gocron.WithStartAt(gocron.WithStartImmediately()),
         )
         
         if err != nil {
@@ -187,4 +275,14 @@ func (c *Cron) Update(id int64, channel string) error {
     }
     
     return nil
+}
+
+func (c *Cron) Regular(id int64) error {
+    record, err := c.repo.GetTournament(context.Background(), id)
+
+    if err != nil {
+        return err
+    }
+
+    return c.Score(record)
 }

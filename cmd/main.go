@@ -1,7 +1,11 @@
 package main
 
 import (
-	"fmt"
+	"context"
+	"os"
+	"os/signal"
+	"sync"
+	"syscall"
 
 	"github.com/t3mp14r3/shiny-umbrella/internal/api/handler"
 	"github.com/t3mp14r3/shiny-umbrella/internal/api/usecase"
@@ -10,58 +14,71 @@ import (
 	"github.com/t3mp14r3/shiny-umbrella/internal/logger"
 	"github.com/t3mp14r3/shiny-umbrella/internal/repository"
 	"github.com/t3mp14r3/shiny-umbrella/internal/repository/notifier"
+	"go.uber.org/zap"
 )
 
 func main() {
-    config, err := config.New()
+    config := config.New()
 
-    if err != nil {
-        return
-    }
+    logger := logger.New()
 
-    logger, err := logger.New()
+    repo := repository.New(config, logger)
+    defer repo.Close()
+
+    cron := cron.New(repo, logger)
+    defer cron.Close()
     
-    if err != nil {
-        return
-    }
-
-    repo, err := repository.New(config, logger)
+    notifier := notifier.New(logger, cron, config.RepositoryConnString())
+    defer notifier.Close()
     
-    if err != nil {
-        return
-    }
-
-    cron, err := cron.New(repo, logger)
+    usecase := usecase.New(repo, logger)
     
-    if err != nil {
-        return
-    }
-
-    err = cron.Load()
-    
-    if err != nil {
-        return
-    }
-
-    notifier, err := notifier.New(logger, cron, config.RepositoryConnString())
-    
-    if err != nil {
-        return
-    }
-    
-    go notifier.Listen()
-
-    usecase, err := usecase.New(repo, logger)
-    
-    if err != nil {
-        return
-    }
-
-    handler, err := handler.New(config, usecase, logger)
+    handler := handler.New(config, usecase, logger)
    
+    wg := sync.WaitGroup{}
+    ctx, cancel := context.WithCancel(context.Background())
+
+    cron.Start()
+
+    err := cron.Load()
+    
     if err != nil {
+        logger.Error("Failed to execute cron load", zap.Error(err))
         return
     }
 
-    fmt.Println(handler.Run())
+    wg.Add(1)
+    go func(ctx context.Context) {
+        defer wg.Done()
+        if err := notifier.Listen(ctx); err != nil {
+            logger.Error("Notifier error", zap.Error(err))
+            cancel()
+        }
+    }(ctx)
+
+    wg.Add(1)
+    go func(ctx context.Context) {
+        defer wg.Done()
+        if err := handler.Run(ctx); err != nil {
+            logger.Error("Handler error", zap.Error(err))
+            cancel()
+        }
+    }(ctx)
+
+    logger.Info("Application started", zap.String("addr", config.AppAddr))
+
+    exit := make(chan os.Signal, 1)
+	signal.Notify(exit, syscall.SIGINT, syscall.SIGTERM)
+
+    select {
+        case <-ctx.Done():
+            logger.Error("Stopping via context")
+        case <-exit:
+            logger.Info("Stopping")
+    }
+
+    cancel()
+    wg.Wait()
+
+    logger.Info("Application stopped")
 }

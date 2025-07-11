@@ -56,7 +56,7 @@ func (r *Repository) GetTournament(ctx context.Context, id int64) (*domain.Tourn
     var out domain.Tournament
     var err error
 
-    err = r.db.GetContext(ctx, &out, "SELECT t.id, t.price, t.min_users, t.max_users, t.bets, t.starts_at, EXTRACT(EPOCH FROM t.duration)::BIGINT AS duration FROM tournaments t WHERE t.id = $1;", id)
+    err = r.db.GetContext(ctx, &out, "SELECT t.id, t.price, t.min_users, t.max_users, t.bets, t.starts_at, EXTRACT(EPOCH FROM t.duration)::BIGINT AS duration, (SELECT json_agg(json_build_object('place', r.place, 'prize', r.prize)) FROM rewards r WHERE r.tournament_id = t.id) AS rewards FROM tournaments t WHERE t.id = $1;", id)
    
     if errors.Is(err, sql.ErrNoRows) {
         return nil, nil
@@ -108,4 +108,17 @@ func (r *Repository) GetRegistration(ctx context.Context, tournament_id int64, u
     }
 
     return &out, nil
+}
+
+func (r *Repository) CreateRewards(ctx context.Context, id int64, input []domain.Reward) error {
+    for _, reward := range input {
+        _, err := r.db.ExecContext(ctx, "INSERT INTO rewards(tournament_id, place, prize) VALUES($1, $2, $3);", id, reward.Place, reward.Prize)
+        
+        if err != nil {
+            r.logger.Error("Failed to create new reward record!", zap.Error(err))
+            return err
+        }
+    }
+
+    return nil
 }

@@ -18,17 +18,16 @@ type Config struct {
     DBMigrations    string  `env:"DB_MIGRATIONS"`
 }
 
-func New() (*Config, error) {
+func New() *Config {
     var cfg Config
 
     err := env.Parse(&cfg)
 
     if err != nil {
-        log.Printf("Failed to initialize new config: %v\n", err)
-        return nil, err
+        log.Fatalf("Failed to initialize new config: %v\n", err)
     }
 
-    return &cfg, nil
+    return &cfg
 }
 
 func (c *Config) RepositoryConnString() string {

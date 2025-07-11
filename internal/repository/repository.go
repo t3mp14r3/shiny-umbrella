@@ -16,37 +16,35 @@ type Repository struct {
     logger  *zap.Logger
 }
 
-func New(cfg *config.Config, logger *zap.Logger) (*Repository, error) {
+func New(cfg *config.Config, logger *zap.Logger) *Repository {
     db, err := sqlx.Connect("postgres", cfg.RepositoryConnString())
 
     if err != nil {
-        log.Printf("Failed to open database connection: %v\n", err)
-        return nil, err
+        log.Fatalf("Failed to open database connection: %v\n", err)
+        return nil
     }
 
-    if err := migrate(db.DB, cfg.DBMigrations); err != nil {
-        return nil, err
-    }
+    migrate(db.DB, cfg.DBMigrations)
 
     return &Repository{
         db: db,
         logger: logger,
-    }, nil
+    }
 }
 
-func migrate(db *sql.DB, path string) error {
+func migrate(db *sql.DB, path string) {
     if err := goose.SetDialect("postgres"); err != nil {
-        log.Printf("Failed to set dialect for database migrations: %v\n", err)
-        return err
+        log.Fatalf("Failed to set dialect for database migrations: %v\n", err)
     }
 
 
     if err := goose.Up(db, path); err != nil {
-        log.Printf("Failed to run database migrations: %v\n", err)
-        return err
+        log.Fatalf("Failed to run database migrations: %v\n", err)
     }
+}
 
-    return nil
+func (r *Repository) Close() {
+    r.db.Close()
 }
 
 func (r *Repository) Begin() (*sqlx.Tx, error) {

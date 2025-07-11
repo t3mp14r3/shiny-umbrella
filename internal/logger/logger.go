@@ -6,13 +6,12 @@ import (
 	"go.uber.org/zap"
 )
 
-func New() (*zap.Logger, error) {
+func New() *zap.Logger {
     logger, err := zap.NewProduction()
 
     if err != nil {
-        log.Printf("Failed to initialize new logger: %v\n", err)
-        return nil, err
+        log.Fatalf("Failed to initialize new logger: %v\n", err)
     }
 
-    return logger, nil
+    return logger
 }

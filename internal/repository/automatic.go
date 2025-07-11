@@ -12,7 +12,7 @@ import (
 func (r *Repository) GetAutomatics(ctx context.Context) ([]domain.Automatic, error) {
     var out []domain.Automatic
 
-    err := r.db.SelectContext(ctx, &out, "SELECT id, price, min_users, max_users, bets, starts_at, EXTRACT(EPOCH FROM duration)::BIGINT AS duration, EXTRACT(EPOCH FROM repeat)::BIGINT AS repeat FROM automatic;")
+    err := r.db.SelectContext(ctx, &out, "SELECT a.id, a.price, a.min_users, a.max_users, a.bets, EXTRACT(EPOCH FROM duration)::BIGINT AS duration, EXTRACT(EPOCH FROM repeat)::BIGINT AS repeat, (SELECT json_agg(json_build_object('place', r.place, 'prize', r.prize)) FROM automatic_rewards r WHERE r.automatic_id= a.id) AS rewards FROM automatic a;")
    
     if errors.Is(err, sql.ErrNoRows) {
         return []domain.Automatic{}, nil
@@ -27,7 +27,7 @@ func (r *Repository) GetAutomatics(ctx context.Context) ([]domain.Automatic, err
 func (r *Repository) GetAutomatic(ctx context.Context, id int64) (*domain.Automatic, error) {
     var out domain.Automatic
 
-    err := r.db.GetContext(ctx, &out, "SELECT id, price, min_users, max_users, bets, starts_at, EXTRACT(EPOCH FROM duration)::BIGINT AS duration, EXTRACT(EPOCH FROM repeat)::BIGINT AS repeat FROM automatic WHERE id = $1;", id)
+    err := r.db.GetContext(ctx, &out, "SELECT a.id, a.price, a.min_users, a.max_users, a.bets, EXTRACT(EPOCH FROM duration)::BIGINT AS duration, EXTRACT(EPOCH FROM repeat)::BIGINT AS repeat, (SELECT json_agg(json_build_object('place', r.place, 'prize', r.prize)) FROM automatic_rewards r WHERE r.automatic_id= a.id) AS rewards FROM automatic a WHERE id = $1;", id)
    
     if errors.Is(err, sql.ErrNoRows) {
         return nil, nil
